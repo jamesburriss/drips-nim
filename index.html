@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
+		<div class="container">
+			<br />
+			<center>
+				<div style="height: 25px;">
+					<strong style="display: none;" id="ai-thinking">AI Thinking<span class="one">.</span><span class="two">.</span><span class="three">.</span></strong>
+				</div>
+				<table class="table table-bordered table-hover" style="width: 5px;">	
+					<tbody></tbody>
+				</table>
+			</center>
+		</div>
+		<script type="text/javascript" src="https://code.jquery.com/jquery-2.2.1.min.js"></script>
+		<script>
+			/**
+			 * Every time a table cell is clicked (a <td>), run the code below
+			 * It gets the <td>'s attributes (column="" and row="")
+			 * Calls playerMove() and passes in the column and row of the cell.
+			 */
+			$(document).ready(function() {
+			    $('td').click(function(){
+			    	var column = $(this).attr('column');
+			    	var row = $(this).attr('row');
+
+			    	playerMove(column, row);
+			    });
+			});
+
+			jQuery.fn.highlight = function () {
+			    $(this).each(function () {
+			        var el = $(this);
+			        $("<div/>")
+			        .width(el.outerWidth())
+			        .height(el.outerHeight())
+			        .css({
+			            "position": "absolute",
+			            "left": el.offset().left,
+			            "top": el.offset().top,
+			            "background-color": "#ffff99",
+			            "opacity": ".7",
+			            "z-index": "9999999"
+			        }).appendTo('body').fadeOut(1000).queue(function () { $(this).remove(); });
+			    });
+			};
+
+			//Global variabless
+			var allBinary = [],
+				initialRowCounts = [],
+			 	rearrangedBinaryNumbers = [],
+				potentialColumnsToChange = [],
+			    binaryAfterConversion = [],
+			    checkExemptions = [];
+
+			var isAIMoving = false;
+
+			initialSetup();  
+
+			/**
+			 * Sets a random column count.
+			 * Sets all arrays to [] (dj fresh)
+			 * Gives each column a random amount of counters. Converts this into binary and adds to 'allBinary'
+			 * Loops through all rows, adds in 'X' or ''. Each table cell gets given a column="something" and row="something"
+			 */
+			function initialSetup()
+			{
+				let columnCount = Math.floor(Math.random() * 4) + 2;
+				let maxRowCount = 15;
+
+				allBinary = [];
+			 	rearrangedBinaryNumbers = [];
+				potentialColumnsToChange = [];
+			    binaryAfterConversion = [];
+			    initialRowCounts = [];
+			    checkExemptions = [];
+
+				for(let i = 0; i < columnCount; i++) {
+					var numberOfCounters = Math.floor(Math.random() * maxRowCount) + 1;
+					var binaryNumber = numberToBinary(numberOfCounters);
+					allBinary.push(binaryNumber);
+					initialRowCounts.push(numberOfCounters);
+				}
+
+				for(let i = 0; i <= maxRowCount; i++) {
+					var tableRow = $('<tr></tr>');
+					$('tbody').append(tableRow);
+					for(let x = 0; x < initialRowCounts.length; x++ ) {
+						tableRow.append('<td column="' + x + '" row="' + i + '">' + (initialRowCounts[x] > i ? 'X' : ' ') + '</td>');
+					}
+				}
+			}
+
+			/**
+			 * Loops through all the counters it needs to remove. It then 'empties' them, and 'highlights' them. 
+			 * Edit the old binary number to the new one (since we removed counters)
+			 * Finally checks if column is empty and if it not already checkExempt. It then exempts it from being checked by the AI. If all columns are empty, call game over.
+			 *
+			 */
+			function removeCounters(column, row, currentCounterCount, countersToRemove, message)
+			{
+				console.log(message);
+				for(let i = 0; i < countersToRemove; i++) {
+					var counterToRemove = $('td[column="' + column + '"][row="' + (i + currentCounterCount - countersToRemove) + '"]');
+					counterToRemove.empty();
+					counterToRemove.highlight();
+				}
+
+				allBinary[column] = numberToBinary(currentCounterCount - countersToRemove);
+
+				if(currentCounterCount - countersToRemove === 0 && checkExemptions.indexOf(column.toString()) == -1) {
+					checkExemptions.push(column.toString());
+				    if(checkExemptions.length == allBinary.length)
+				    	alert('Game Over!');
+				}
+			}
+
+			/**
+			 * Checks if player is allowed to move
+			 * Checks if table cell is clickable
+			 * Gets total column counter count and takes away from element clicked's row count. Deletes the necessaru counters
+			 * Sets isAIMoving to true, waits 3 seconds, runs AIMove(), sets isAIMoving to false
+			 */
+			function playerMove(column, row)
+			{
+				if(!isAIMoving) {
+					if($('td[column="' + column + '"][row="' + row + '"]').text().indexOf('X') != -1) {
+						var currentCounterCount = binaryToNumber(allBinary[column]);
+						var countersToRemove = currentCounterCount - row;
+
+						removeCounters(column, row, currentCounterCount, countersToRemove, 'Player Move');
+
+						isAIMoving = true;
+						$('#ai-thinking').fadeIn();
+
+						setTimeout(function(){
+							AIMove();
+							isAIMoving = false;
+							$('#ai-thinking').fadeOut();
+						}, 3000);
+					} else {
+						alert('You can only click spaces with counters');
+					}
+				} else {
+					alert('It\'s not your turn yet!');
+				}
+			}
+
+			/**
+			 * Gets first position of each binary array, puts in own array. Iterates.
+			 * Checks each rearranged array whether it's even. If it is, allow that column to be modified.
+			 * Each rearranged binary number's changable column digits get flipped. e.g. 0 => 1 and 1 => 0
+			 * Check the flipped number isn't bigger. If it is, try the next one.
+			 * If all flipped numbers are bigger, it will have to do an 'impossible move' => delete random no of counters from random column
+			 */
+			function AIMove()
+			{
+			 	rearrangedBinaryNumbers = [];
+				potentialColumnsToChange = [];
+			    binaryAfterConversion = [];
+
+				for (let i = 0; i < allBinary.length; i++) {
+				    for(let x = 0; x < allBinary[i].length; x++) {
+				        if(i === 0)
+				            rearrangedBinaryNumbers.push([]);
+				        rearrangedBinaryNumbers[x].push(allBinary[i][x]);
+				    }
+				}
+
+				for (var i = 0; i < rearrangedBinaryNumbers.length; i++) {
+					var binaryDigitsAdded = rearrangedBinaryNumbers[i].reduce((a, b) => a + b, 0);
+				    if(binaryDigitsAdded % 2 !== 0) {
+				    	potentialColumnsToChange.push(i);
+				    }
+				}
+
+			    if(checkExemptions.length != allBinary.length - 1) {
+					for (let i = 0; i < allBinary.length; i++) {
+						binaryAfterConversion.push([]);
+						var numberBeforeConversion = binaryToNumber(allBinary[i]);
+					     
+						for(var x = 0; x < allBinary[i].length; x++) {
+					    	if(potentialColumnsToChange.indexOf(x) != -1) {
+					        	binaryAfterConversion[i].push(allBinary[i][x] === 0 ? 1 : 0);
+					        } else {
+					        	binaryAfterConversion[i].push(allBinary[i][x]);
+					        }
+					    }
+					    
+					    var numberAfterConversion = binaryToNumber(binaryAfterConversion[i]);
+
+					    if(numberBeforeConversion > numberAfterConversion && numberAfterConversion !== 0) {
+							if(checkExemptions.indexOf(i.toString()) == -1) {
+						    	allBinary[i] = binaryAfterConversion[i];
+								removeCounters(i, x, numberBeforeConversion, numberAfterConversion, 'Valid AI');
+						    	break;
+						    }
+					    } else if(i == allBinary.length - 1) {
+					    	var randomColumn;
+					    	var y = 0;
+					    	do {
+							    randomColumn = Math.floor(Math.random() * allBinary.length);
+							    y++;
+							}
+							while (checkExemptions.indexOf(randomColumn.toString()) != -1 && y < 15);
+
+					    	var randomRow = Math.floor(Math.random() * allBinary[randomColumn].length);
+							numberBeforeConversion = binaryToNumber(allBinary[randomColumn]);
+					    	numberAfterConversion = numberBeforeConversion - Math.floor(Math.random() * numberBeforeConversion);
+
+					    	removeCounters(randomColumn, randomRow, numberBeforeConversion, numberAfterConversion, 'Impossible');
+					    	break;
+					    }
+					}
+				} else {
+					alert('This is the part where it removes the whole column and wins');
+				}
+			}
+
+			function numberToBinary(number)
+			{
+				var binary = [];
+				while(number > 0) {
+					var remainder = number % 2;
+					binary.unshift(remainder);
+					number = Math.floor(number / 2);
+				}
+
+				while(binary.length < 4) {
+					binary.unshift(0);
+				}
+				return binary;
+			}
+
+			function binaryToNumber(binary)
+			{
+				var multiplier = 1,
+			    	number = 0;
+				for(var i = binary.length - 1; i >= 0; i--) {
+			   		if(binary[i] == 1)
+			        	number += multiplier;
+			        multiplier *= 2;
+			    }
+			    return number;
+			}
+		</script>
+	</body>
+</html>
